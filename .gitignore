@@ -6,3 +6,6 @@ build/
 .DS_Store
 coverage/
 .vite/
+
+# Claude Code local tooling config (session-specific, not project config)
+.claude/
