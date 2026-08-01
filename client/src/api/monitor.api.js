@@ -1,8 +1,18 @@
-import api from './axios';
+import api, { HEALTH_URL } from './axios';
 
-// Health lives at /health (outside the /api base), so hit it directly.
+/**
+ * Health lives at /health, outside the /api base, so it is derived from the
+ * API base rather than requested as a bare relative path. In dev the two are
+ * the same thing (Vite proxies both). Deployed they are not: this app is
+ * served from Vercel and the API from Railway, so a relative '/health' would
+ * ask Vercel about its own health, get the SPA's index.html back with a 200,
+ * and light up the navbar's "API online" indicator while the actual backend
+ * was unreachable.
+ */
 export const getHealth = () =>
-  fetch('/health').then((r) => (r.ok ? r.json() : Promise.reject(r)));
+  fetch(HEALTH_URL, { credentials: 'include' }).then((r) =>
+    r.ok ? r.json() : Promise.reject(r)
+  );
 
 export const listMonitors = () => api.get('/monitors').then((r) => r.data);
 export const getOverview = () => api.get('/overview').then((r) => r.data);

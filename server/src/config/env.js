@@ -27,8 +27,17 @@ const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: intFromEnv(5000),
 
-  // Leave MONGO_URI unset to boot an in-memory MongoDB (prototype convenience).
-  MONGO_URI: z.string().url().optional(),
+  // MongoDB Atlas. Leave unset in development to boot an in-memory MongoDB;
+  // required in production, which config/db.js enforces.
+  //
+  // The preprocess step treats "" as unset. A hosting dashboard makes an empty
+  // variable trivially easy to create — add the row, forget to paste the value —
+  // and without this the app would reject it as a malformed URL rather than
+  // falling back, turning a blank field into a boot loop with a confusing cause.
+  MONGO_URI: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().url().optional()
+  ),
 
   // Scheduler
   //
@@ -92,6 +101,25 @@ const schema = z.object({
   // Cookies are Secure in production and plain HTTP in development, since
   // localhost has no TLS. Override only if you terminate TLS upstream.
   COOKIE_SECURE: z.enum(['true', 'false']).optional().transform((v) => v === undefined ? undefined : v === 'true'),
+
+  /**
+   * SameSite policy for the auth cookie. Left unset it resolves to 'none' in
+   * production and 'lax' in development (see below the schema).
+   *
+   * This exists because the frontend and the API are deployed to different
+   * sites — the React build on Vercel, the API on Railway. `.vercel.app` and
+   * `.up.railway.app` are separate registrable domains, so every API call the
+   * browser makes is cross-site, and a 'lax' cookie is simply not attached to
+   * cross-site XHR/fetch. The failure mode is the nasty kind: login returns
+   * 200, the cookie is stored, and every request after it goes out
+   * unauthenticated with nothing in the network tab to explain why.
+   *
+   * 'none' is only safe here because the API never mutates state through GET
+   * and CORS_ORIGIN is an exact allow-list — a third-party site can make the
+   * browser send the cookie, but cannot read any response it did not get
+   * permission for.
+   */
+  COOKIE_SAMESITE: z.enum(['lax', 'none', 'strict']).optional(),
 
   // Off by default: trusting proxy headers blindly lets a client spoof its own
   // IP, which would defeat the auth rate limiter. Turn on only behind a proxy
@@ -187,6 +215,35 @@ if (!config.JWT_SECRET) {
 // Secure cookies wherever we are not on plain-HTTP localhost.
 if (config.COOKIE_SECURE === undefined) {
   config.COOKIE_SECURE = config.NODE_ENV === 'production';
+}
+
+/**
+ * In production the frontend (Vercel) and the API (Railway) are different
+ * sites, so the auth cookie has to be SameSite=None to survive the trip. In
+ * development both are localhost — same site — where 'lax' is the stricter and
+ * therefore better default, and 'none' would not work anyway because browsers
+ * refuse a SameSite=None cookie that is not also Secure, and localhost is HTTP.
+ */
+if (config.COOKIE_SAMESITE === undefined) {
+  config.COOKIE_SAMESITE = config.NODE_ENV === 'production' ? 'none' : 'lax';
+}
+
+/**
+ * Every browser silently rejects `SameSite=None` without `Secure`. Silently is
+ * the problem: the server would report a successful login, set a cookie the
+ * browser throws on the floor, and leave you debugging the API for a
+ * misconfiguration that lives entirely in two environment variables. Refusing
+ * to boot puts the error where the mistake is.
+ */
+if (config.COOKIE_SAMESITE === 'none' && !config.COOKIE_SECURE) {
+  console.error(
+    'Invalid environment configuration:\n' +
+      '  - COOKIE_SAMESITE=none requires COOKIE_SECURE=true (browsers drop the\n' +
+      '    cookie otherwise, and login will appear to succeed but never persist).\n' +
+      '    Serve the API over HTTPS and set COOKIE_SECURE=true, or use\n' +
+      '    COOKIE_SAMESITE=lax if the frontend is served from this same origin.'
+  );
+  process.exit(1);
 }
 
 module.exports = Object.freeze(config);

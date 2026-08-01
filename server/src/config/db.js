@@ -8,11 +8,26 @@ let memoryServer = null;
 
 /**
  * Resolves the connection string. When MONGO_URI is absent we spin up an
- * in-process MongoDB so the prototype runs with zero setup — data is
- * discarded on exit. Point MONGO_URI at Atlas or a local mongod to persist.
+ * in-process MongoDB so a fresh clone runs with zero setup — data is discarded
+ * on exit. Point MONGO_URI at Atlas to persist.
+ *
+ * That fallback is a development convenience and nothing more. In production it
+ * would be actively harmful: the service would boot green, serve traffic, and
+ * throw every account and monitor away on the next deploy — a data-loss bug
+ * wearing a healthy status check. A missing MONGO_URI there is fatal instead.
  */
 async function resolveUri() {
   if (env.MONGO_URI) return env.MONGO_URI;
+
+  if (env.NODE_ENV === 'production') {
+    throw new Error(
+      'MONGO_URI is required in production.\n' +
+        '  Set it to your MongoDB Atlas connection string (Atlas → Connect → Drivers):\n' +
+        '    mongodb+srv://<user>:<password>@<cluster>.mongodb.net/uptime?retryWrites=true&w=majority\n' +
+        '  Refusing to fall back to the in-memory database, which would discard\n' +
+        '  every account and monitor on the next restart.'
+    );
+  }
 
   logger.warn('MONGO_URI not set — starting an in-memory MongoDB (data is not persisted)');
   // Required lazily: it is a devDependency and only needed on this path.
@@ -22,29 +37,55 @@ async function resolveUri() {
 }
 
 /**
- * Turns a refused connection into an instruction.
+ * Turns a driver-level connection failure into an instruction.
  *
- * "connect ECONNREFUSED 127.0.0.1:27017" is accurate and useless: the database
- * this project ships with lives in a container, and the only thing that has
- * gone wrong is that the container is not running. Saying so — with the command
- * that starts it — is the difference between a five-second fix and assuming the
- * app itself is broken.
+ * The database is MongoDB Atlas, and the two ways it refuses a connection both
+ * produce errors that describe the symptom rather than the cause. A DNS/timeout
+ * failure on an `mongodb+srv` host is almost always the caller's IP missing from
+ * the Atlas access list — nothing about "querySrv ENOTFOUND" says so. Bad auth
+ * is usually the password pasted in raw when it contains characters the URI
+ * grammar reserves. Naming the likely fix is the difference between a one-minute
+ * change in the Atlas UI and an afternoon spent suspecting the app.
  */
 function explain(err, uri) {
-  const refused = err.message?.includes('ECONNREFUSED');
-  const isLocal = /127\.0\.0\.1|localhost/.test(uri);
-  if (!refused || !isLocal) return err;
+  const message = err.message || '';
+  const isAtlas = uri.startsWith('mongodb+srv://');
+  const safeUri = uri.replace(/\/\/[^@]*@/, '//');
 
   // `cause` keeps the original driver error reachable for anyone debugging the
   // connection itself, rather than trading it away for the friendlier message.
-  return new Error(
-    `Cannot reach MongoDB at ${uri.replace(/\/\/[^@]*@/, '//')}.\n` +
-      '  The database runs in Docker and does not appear to be up.\n' +
-      '  Start it from the project root with:  npm run db:up\n' +
-      '  (that needs Docker Desktop running first)\n' +
-      '  Or unset MONGO_URI in server/.env to use a throwaway in-memory database.',
-    { cause: err }
-  );
+  const wrap = (text) => new Error(`${text}\n  (original error: ${message})`, { cause: err });
+
+  if (/bad auth|Authentication failed/i.test(message)) {
+    return wrap(
+      `MongoDB rejected the credentials in MONGO_URI.\n` +
+        '  Check the database user under Atlas → Database Access — note that is a\n' +
+        '  separate user from your Atlas login.\n' +
+        '  If the password contains @ : / ? # [ ] or %, it must be percent-encoded\n' +
+        '  in the URI (@ becomes %40, # becomes %23, and so on).'
+    );
+  }
+
+  if (isAtlas && /ENOTFOUND|ETIMEDOUT|querySrv|Server selection timed out/i.test(message)) {
+    return wrap(
+      `Cannot reach MongoDB Atlas at ${safeUri}.\n` +
+        '  The usual cause is network access: Atlas → Network Access must list the\n' +
+        '  IP connecting to it. Railway has no static outbound IP, so that entry\n' +
+        '  needs to be 0.0.0.0/0 for the deployed backend to connect at all.\n' +
+        '  Otherwise check that the cluster is not paused and the hostname is exact.'
+    );
+  }
+
+  if (/ECONNREFUSED/.test(message)) {
+    return wrap(
+      `Cannot reach MongoDB at ${safeUri}.\n` +
+        '  Nothing is listening there. If you meant to use Atlas, MONGO_URI should\n' +
+        '  be the mongodb+srv:// string from Atlas → Connect → Drivers.\n' +
+        '  Or unset MONGO_URI in server/.env to use a throwaway in-memory database.'
+    );
+  }
+
+  return err;
 }
 
 async function connect() {

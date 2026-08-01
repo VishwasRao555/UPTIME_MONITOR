@@ -181,6 +181,24 @@ describe('monitor ownership isolation', () => {
     await expect(operation(bMonitor._id, a.id)).rejects.toMatchObject({ statusCode: 404 });
   });
 
+  /**
+   * A syntactically invalid id is still just "no such monitor" to the caller.
+   * Letting Mongoose's CastError escape turns a typo in a URL into a 500 and an
+   * error-level log line, so ordinary 404 traffic reads as the server breaking
+   * — and the two ids answer differently, which tells a prober which of their
+   * guesses were well-formed.
+   */
+  it.each([
+    ['read', (id, userId) => monitors.getMonitor(id, userId)],
+    ['update', (id, userId) => monitors.updateMonitor(id, { name: 'Hijacked' }, userId)],
+    ['delete', (id, userId) => monitors.deleteMonitor(id, userId)],
+    ['results', (id, userId) => monitors.getResults(id, '24h', userId)],
+    ['incidents', (id, userId) => monitors.getIncidents(id, userId)],
+    ['check now', (id, userId) => monitors.checkNow(id, userId)],
+  ])('answers 404, not 500, when asked to %s a malformed id', async (_label, operation) => {
+    await expect(operation('not-an-object-id', a.id)).rejects.toMatchObject({ statusCode: 404 });
+  });
+
   it("leaves the other account's monitor untouched after a failed hijack", async () => {
     await monitors.updateMonitor(bMonitor._id, { name: 'Hijacked' }, a.id).catch(() => {});
     const still = await Monitor.findById(bMonitor._id).lean();

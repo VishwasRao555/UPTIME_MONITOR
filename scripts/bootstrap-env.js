@@ -9,6 +9,11 @@
  * This writes a working one, with a real random secret so nobody has to
  * remember to generate it.
  *
+ * MONGO_URI is left commented out on purpose: the database is MongoDB Atlas
+ * now, and only you have the connection string. Uncomment it and paste yours
+ * in to get persistence; until then the in-memory fallback keeps the app
+ * runnable on a fresh clone.
+ *
  * Never overwrites an existing file: that would destroy a secret in use and
  * sign everyone out.
  */
@@ -29,11 +34,12 @@ const secret = crypto.randomBytes(48).toString('hex');
 const contents = `NODE_ENV=development
 PORT=5000
 
-# Persistent MongoDB from docker-compose.yml at the project root.
-# Start it with:  npm run db:up
+# MongoDB Atlas connection string — Atlas UI → Connect → Drivers.
+# Keep a database name (/uptime) in the path: without one Mongoose connects
+# but writes into a default "test" database instead.
 # Leave this unset and the server uses a throwaway in-memory database that is
 # wiped on exit — your account will not survive a restart.
-MONGO_URI=mongodb://sentinel:sentinel-local-dev@127.0.0.1:27017/uptime?authSource=admin
+# MONGO_URI=mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/uptime?retryWrites=true&w=majority
 
 # Signs session cookies. Generated locally on first setup. Changing it signs
 # everyone out. Required in production — the server refuses to boot without it.

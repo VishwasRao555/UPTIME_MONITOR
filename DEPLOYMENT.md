@@ -1,257 +1,231 @@
-# Getting UPTime Monitor onto GitHub and deployed for free
+# Deploying UPTime Monitor
 
-This covers two things: getting this project into its own GitHub repository, and
-deploying the frontend, backend, and database somewhere free and working
-together as one app.
+The stack, and why each piece is where it is:
 
----
-
-## ⚠️ Read this first: your git repo is not scoped to this project
-
-Running `git status` from inside this folder shows paths like `../../../.agents/`,
-`../../../.bash_history`, `../../../NTUSER.DAT`, and unrelated project folders
-(`AI-Interview/`, `DSA/`, `CashFlow/`, ...) as untracked files. That's because:
-
-```
-git rev-parse --show-toplevel  →  C:/Users/vishw
-```
-
-**The git repository you're currently inside is rooted at your entire Windows
-user profile**, not at `UPTime_Monitor`. Its history (`Add my name`,
-`AI Interview Coach SPA`, ...) belongs to a different project entirely. This was
-almost certainly created by running `git init` once from the home directory
-instead of from inside a project folder, and it's been silently sitting there
-since.
-
-**Do not run `git add .` or `git add -A` from that root, or from anywhere
-relying on it.** It would stage your entire profile — browser data, the
-`NTUSER.DAT` registry hive, SSH/config folders, every unrelated project — into
-whatever you commit next. If that ever got pushed to a public GitHub repo, all
-of that would be exposed.
-
-I'm not touching that outer repository — whether to keep it, repurpose it for
-the AI Interview project, or delete it is your call, and undoing a `git init`
-higher up should be deliberate, not something a doc talks you into as a side
-effect. Instead, the steps below create a **brand-new, independent repository
-scoped only to this folder**. Once `UPTime_Monitor/.git` exists, Git always
-uses the nearest `.git` upward from your working directory, so every command
-you run from inside `UPTime_Monitor` from that point on operates on the new,
-isolated repo and never touches the one at `C:/Users/vishw`.
-
----
-
-## Part 1 — Put this project on GitHub
-
-### 1. Initialize a repo scoped to this folder only
-
-```bash
-cd "C:\Users\vishw\OneDrive\Desktop\UPTime_Monitor"
-git init
-git status
-```
-
-`git status` should now list only files inside `UPTime_Monitor` — no `../`
-paths. If you see anything from outside this folder, stop and re-check before
-continuing.
-
-### 2. Confirm secrets are actually ignored
-
-```bash
-git check-ignore -v server/.env
-```
-
-This should print a match against `.gitignore`'s `.env` line. If it prints
-nothing, `server/.env` (which has your real `GMAIL_APP_PASSWORD` and
-`JWT_SECRET`) would get committed — fix `.gitignore` before proceeding. The
-existing `.gitignore` already covers `node_modules/`, `.env`, `dist/`, and
-`build/`, which is everything this project needs excluded.
-
-### 3. First commit
-
-```bash
-git add .
-git status
-```
-
-Look through the output — you're checking that `server/.env` is **not**
-listed (only `server/.env.example` should be), and that no `node_modules`
-folders appear.
-
-```bash
-git commit -m "Initial commit: UPTime Monitor"
-```
-
-### 4. Create the GitHub repo and push
-
-Using the GitHub CLI (`gh`), if you have it:
-
-```bash
-gh repo create uptime-monitor --private --source=. --remote=origin --push
-```
-
-Or manually: create an empty repository at github.com (no README, no
-`.gitignore` — you already have both), then:
-
-```bash
-git remote add origin https://github.com/<your-username>/uptime-monitor.git
-git branch -M main
-git push -u origin main
-```
-
-`client/src/config.js` currently hardcodes
-`GITHUB_URL = 'https://github.com/vishwasraoch555/uptime-monitor'` for the
-navbar/docs links — update that to match whatever repo name and username you
-actually use.
-
----
-
-## Part 2 — Why this app needs a specific deployment shape
-
-Two things about this codebase constrain where it can run for free, and
-skipping past them is why a naive deployment breaks:
-
-**1. The scheduler needs a process that never stops.**
-`src/scheduler/index.js` runs a `node-cron` job every `CHECK_TICK_SECONDS`,
-in-process, forever. That's what detects outages automatically. Serverless
-platforms (Vercel functions, Netlify functions) only run code in response to
-an incoming request and shut down between calls — there is no "forever" for a
-background timer to live in. **The backend must run on a platform that keeps
-a persistent Node process alive**, not a serverless one.
-
-**2. The auth cookie only survives on a single origin.**
-`src/utils/authCookie.js` sets the session cookie with `sameSite: 'lax'`.
-Browsers do not attach a `lax` cookie to cross-site `fetch`/XHR calls — only
-to top-level navigations. If the frontend and backend end up on two different
-domains (e.g. a static site on one host, the API on another), login will
-appear to succeed and then every subsequent request will silently go out
-unauthenticated, with nothing informative in the browser's network tab.
-
-To make a truly free, single-service deployment possible without changing
-that cookie policy, I added a small piece of infrastructure in
-`server/src/app.js`: when `NODE_ENV=production`, Express serves the built
-React app (`client/dist`) directly, with any non-`/api`, non-`/health` path
-falling back to `index.html` (required for React Router's client-side routes
-like `/monitor/:id` to survive a page refresh). Frontend and backend become
-one origin, one free service, and the cookie problem never comes up.
-
----
-
-## Part 3 — The recommended free stack
-
-| Piece | Service | Why |
+| Piece | Service | Why this one |
 |---|---|---|
-| Database | MongoDB Atlas (M0 tier) | Free forever, 512MB, no card required |
-| Backend + Frontend | Render (Web Service, free tier) | Persistent process (scheduler keeps running), serves both API and built frontend from one URL |
+| Database | **MongoDB Atlas** (M0 free) | Free forever, 512 MB, no card required |
+| Backend + scheduler | **Railway** | Keeps a Node process alive permanently — the scheduler needs that |
+| Frontend | **Vercel** | Static React build on a CDN, deploys on push |
 
-### Step 1 — MongoDB Atlas
+Everything below assumes the repo is already on GitHub. Both platforms deploy
+from it directly.
 
-1. Sign up at mongodb.com/cloud/atlas, create a free **M0** cluster.
-2. **Database Access** → add a database user with a username/password (not
-   your Atlas login).
-3. **Network Access** → add `0.0.0.0/0` (allow from anywhere). Render's free
-   tier doesn't have static outbound IPs, so you can't scope this tighter
-   without a paid Atlas network peering feature.
-4. **Connect → Drivers** → copy the connection string. It looks like:
+---
+
+## The one constraint that shapes all of this
+
+**The scheduler needs a process that never stops.**
+`server/src/scheduler/index.js` runs a `node-cron` job every
+`CHECK_TICK_SECONDS`, in-process, forever. That is what detects outages without
+anyone pressing a button. Serverless platforms — Vercel Functions, Netlify
+Functions, Lambda — only run code in response to a request and shut down in
+between. There is no "forever" there for a background timer to live in, so the
+backend cannot go on Vercel next to the frontend. Railway runs a normal
+long-lived container, which is exactly what this needs.
+
+That split has one consequence worth understanding before you hit a confusing
+bug, covered next.
+
+---
+
+## Why the auth cookie needed changing
+
+`uptime-monitor.vercel.app` and `uptime-monitor.up.railway.app` are **different
+sites**, not just different subdomains — `vercel.app` and `up.railway.app` are
+both on the Public Suffix List, so browsers treat them as unrelated registrable
+domains. Every API call the dashboard makes is therefore cross-site.
+
+The session cookie used to be `SameSite=Lax`, and browsers **never** attach a
+Lax cookie to a cross-site `fetch`/XHR. Deployed as-is, that produces the worst
+kind of bug: login returns `200`, the cookie is stored, and every request after
+it goes out unauthenticated — with nothing in the network tab saying why.
+
+So the cookie policy is now configurable, defaulting to `SameSite=None` in
+production (`COOKIE_SAMESITE` in `server/src/config/env.js`). Two guardrails
+come with it:
+
+- Browsers reject `SameSite=None` without `Secure`, silently. The server now
+  **refuses to boot** on that combination instead of shipping a cookie the
+  browser throws away.
+- `SameSite=None` means other sites can cause the browser to *send* the cookie,
+  so the CORS allow-list has to be exact. `CORS_ORIGIN` is matched exactly (no
+  wildcards, trailing slashes stripped), and a blocked origin is logged with the
+  value it would have needed — because a CORS failure is invisible from the
+  client side.
+
+This is safe here because the API never mutates state through `GET`, so the
+CSRF surface a Lax cookie was protecting against does not exist.
+
+---
+
+## Step 1 — MongoDB Atlas
+
+1. Create a free **M0** cluster at [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas).
+2. **Database Access** → add a database user with a username and password. This
+   is a *separate* account from your Atlas login.
+3. **Network Access** → add `0.0.0.0/0` (allow from anywhere).
+
+   Railway does not give free services a static outbound IP, so there is no
+   narrower CIDR that would keep working. The database is still protected by
+   the user password and TLS — but this is the real reason that password needs
+   to be a strong one.
+4. **Connect → Drivers → Node.js** → copy the connection string:
+
    ```
-   mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/uptime?retryWrites=true&w=majority
+   mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
    ```
-   Make sure a database name (`uptime` above) is in the path — without it,
-   Mongoose connects but writes to a default `test` database instead.
 
-### Step 2 — Push the app.js change and commit
+   Two edits before it will work:
 
-The static-serving change is already in `server/src/app.js` on your working
-tree from this session — make sure it's included in the commit you push
-(Part 1, step 3, if you haven't committed yet).
+   - Replace `<password>` with the database user's actual password. If it
+     contains `@ : / ? # [ ]`, percent-encode them (`@` → `%40`, `#` → `%23`).
+     An unencoded `@` splits the URI in the wrong place and produces an
+     authentication error that looks like a wrong password.
+   - Add the database name to the path: `.mongodb.net/uptime?retryWrites=...`.
+     Without it Mongoose connects happily and writes into a default `test`
+     database — the app works, and then your data is not where you look for it.
 
-### Step 3 — Create the Render Web Service
+Keep the finished string somewhere handy; Step 2 and your local `server/.env`
+both need it.
 
-1. Sign up at render.com, connect your GitHub account, select the
-   `uptime-monitor` repo.
-2. **New → Web Service**, and set:
-   - **Root Directory:** leave blank (repo root)
-   - **Build Command:**
-     ```
-     npm --prefix server install && npm --prefix client install && npm --prefix client run build
-     ```
-   - **Start Command:**
-     ```
-     npm --prefix server start
-     ```
-   - **Instance Type:** Free
+---
 
-3. **Environment** tab — add these variables:
+## Step 2 — Backend on Railway
 
-   | Key | Value | Notes |
-   |---|---|---|
-   | `NODE_ENV` | `production` | Enables the static-serving block and secure cookies |
-   | `MONGO_URI` | your Atlas connection string | From Step 1 |
-   | `JWT_SECRET` | output of the command below | Required in production — server refuses to boot without it |
-   | `JWT_EXPIRES_DAYS` | `30` | |
-   | `CHECK_TICK_SECONDS` | `30` | |
-   | `FAILURE_THRESHOLD` | `3` | |
-   | `NOTIFIER_CHANNELS` | `console,gmail` | |
-   | `GMAIL_USER` | `neerajkr5647@gmail.com` | |
-   | `GMAIL_APP_PASSWORD` | your 16-char app password | No spaces needed — the app strips them |
-   | `ALERT_EMAIL_FROM_NAME` | `Uptime Monitor` | |
-   | `CORS_ORIGIN` | your Render URL, e.g. `https://uptime-monitor-xxxx.onrender.com` | Same-origin means this mostly won't be exercised, but set it correctly anyway |
-   | `SSRF_GUARD` | `true` | |
+1. [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub
+   repo** → pick this repo.
+2. Open the service → **Settings**:
+   - **Root Directory:** `server`
 
-   Generate `JWT_SECRET` locally first:
+     This matters. It points the build at `server/package.json` and
+     `server/railway.json`, so Railway installs only the API's dependencies and
+     picks up the health check. Left at the repo root it would build the
+     orchestration package instead and never start the server.
+   - Leave build and start commands alone — `server/railway.json` supplies them
+     (`npm start`, health check on `/health`).
+3. **Variables** → add:
+
+   | Key | Value |
+   |---|---|
+   | `NODE_ENV` | `production` |
+   | `MONGO_URI` | your Atlas string from Step 1 |
+   | `JWT_SECRET` | generate it — see below |
+   | `JWT_EXPIRES_DAYS` | `30` |
+   | `TRUST_PROXY` | `true` |
+   | `CHECK_TICK_SECONDS` | `30` |
+   | `FAILURE_THRESHOLD` | `3` |
+   | `NOTIFIER_CHANNELS` | `console,gmail` |
+   | `GMAIL_USER` | your Gmail address |
+   | `GMAIL_APP_PASSWORD` | the 16-character App Password (spaces are stripped for you) |
+   | `ALERT_EMAIL_FROM_NAME` | `Uptime Monitor` |
+   | `SSRF_GUARD` | `true` |
+   | `CORS_ORIGIN` | *(placeholder for now — filled in at Step 4)* |
+
+   Generate the secret locally:
+
    ```bash
    node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
    ```
 
-4. Click **Create Web Service**. Render will run the build, then start the
-   server. Watch the deploy log for:
+   Do **not** set `PORT` — Railway injects it, and the server already reads it.
+
+   `TRUST_PROXY=true` is required here specifically: requests arrive through
+   Railway's edge proxy, so without it every client appears to come from the
+   same IP and the login rate limiter throttles all your users as one attacker.
+
+4. **Settings → Networking → Generate Domain**. Copy the result, e.g.
+   `https://uptime-monitor-production.up.railway.app`. This is your API URL.
+
+5. Check the deploy log for:
+
    ```
+   MongoDB connected
    Alert channels active {"channels":["console","gmail"]}
    Scheduler started {"everySeconds":30}
    API listening
    ```
-   If `JWT_SECRET` or `MONGO_URI` is missing/wrong, the log will say exactly
-   that and the service will fail to start — the app is written to fail loudly
-   here rather than boot in a broken state.
 
-### Step 4 — The free-tier catch: keep the scheduler awake
+   A missing `JWT_SECRET` or `MONGO_URI` fails the boot with a message naming
+   the variable — the app is written to fail loudly rather than start broken.
 
-Render's free web services **sleep after 15 minutes with no incoming HTTP
-traffic**, and spinning back up on the next request takes 30-60 seconds. While
-asleep, the process isn't running at all — which means the scheduler isn't
-ticking, and a real outage during that window won't be detected until
-something wakes the service up. This defeats the entire point of "automatic"
-monitoring if left alone.
+6. Confirm it is up: open `https://<your-railway-domain>/health` in a browser.
+   You want `{"status":"ok","db":"connected"}`.
 
-The standard fix: have something ping the app every 10-14 minutes so it never
-gets the chance to sleep. Your own health endpoint (`GET /health`) is built
-for exactly this. Pick one, free:
-
-- **cron-job.org** — free account, add a job hitting
-  `https://<your-app>.onrender.com/health` every 10 minutes.
-- **UptimeRobot** free tier — same idea, and doubles as a second, independent
-  uptime check on your own app.
-- A scheduled **GitHub Actions** workflow in this repo (`curl` on a cron
-  schedule) works too, if you'd rather not add another third-party account.
-
-Yes — you'll be using an external uptime pinger to keep your own uptime
-monitor from falling asleep. That's genuinely the tradeoff of the free tier,
-not a workaround for a bug.
-
-### Step 5 — Verify it actually works end to end
-
-1. Open the Render URL in a browser, sign up with a real email you can check.
-2. Confirm the welcome email arrives (check Spam once, per the earlier fix).
-3. Create a monitor pointing at a URL you control or a deliberately broken one.
-4. Wait for 3 failed checks (`FAILURE_THRESHOLD=3`, ~2-3 minutes at the
-   default 60s interval) and confirm the DOWN alert email arrives without you
-   touching "Check now."
+> **Keep it at one replica.** The scheduler runs inside the web process, so two
+> replicas would each check every monitor and you would get duplicate alerts.
+> `railway.json` pins `numReplicas: 1`.
 
 ---
 
-## Part 4 — Redeploying after changes
+## Step 3 — Frontend on Vercel
 
-Render auto-deploys on every push to the branch you connected (`main` by
-default):
+1. [vercel.com](https://vercel.com) → **Add New → Project** → import this repo.
+2. **Root Directory:** `client` — the React app is not at the repo root, and
+   Vercel builds nothing useful if this is left blank.
+3. Framework preset should auto-detect **Vite**. `client/vercel.json` already
+   sets the build command, output directory, and the SPA rewrite that makes
+   `/monitor/:id` survive a refresh instead of returning Vercel's 404.
+4. **Environment Variables** → add:
+
+   | Key | Value |
+   |---|---|
+   | `VITE_API_URL` | `https://<your-railway-domain>/api` |
+
+   Include the `/api` suffix and no trailing slash. Vite inlines this at **build
+   time**, so if you change it later you must redeploy — editing the variable
+   alone does nothing to the already-built site.
+5. **Deploy**, then copy the resulting URL, e.g.
+   `https://uptime-monitor.vercel.app`.
+
+---
+
+## Step 4 — Introduce them to each other
+
+Back in Railway → **Variables**, set:
+
+```
+CORS_ORIGIN=https://uptime-monitor.vercel.app
+```
+
+Your exact Vercel URL, **no trailing slash**. Railway redeploys automatically.
+
+This is the step people skip. Without it the browser blocks every API call, the
+dashboard looks completely dead, and the Railway logs are the only place that
+says why:
+
+```
+Blocked a cross-origin request: add this origin to CORS_ORIGIN
+```
+
+Vercel preview deployments get their own URLs and are **not** covered by the
+production entry. If you want a preview branch to talk to the API, add its URL
+to the same comma-separated list.
+
+---
+
+## Step 5 — Verify end to end
+
+1. Open the Vercel URL. The navbar's indicator should read **API online** — that
+   is a live `/health` call against Railway, so it is a real cross-origin test.
+2. Sign up with an email you can check, and confirm the welcome email arrives
+   (look in Spam once).
+3. **Refresh the page.** This is the important one: if you stay signed in, the
+   cross-site cookie is working. If you get bounced to login, the cookie was
+   dropped — check `COOKIE_SAMESITE`/`COOKIE_SECURE` and that `NODE_ENV` is
+   `production` on Railway.
+4. Navigate to a monitor detail page and refresh again — that tests the SPA
+   rewrite in `vercel.json`.
+5. Create a monitor pointing at a deliberately broken URL, then leave it alone.
+   After `FAILURE_THRESHOLD` (3) failed checks the DOWN alert should arrive
+   without you touching "Check now" — that proves the scheduler is running on
+   Railway.
+
+---
+
+## Redeploying
+
+Both platforms auto-deploy on push to `main`:
 
 ```bash
 git add -A
@@ -259,26 +233,41 @@ git commit -m "your change"
 git push
 ```
 
-Watch the Render dashboard's deploy log the same way as the first deploy.
+Vercel rebuilds the client, Railway rebuilds the API. They are independent — a
+frontend-only change does not restart the scheduler.
 
 ---
 
-## Part 5 (optional/advanced) — Splitting frontend and backend across two hosts
+## Troubleshooting
 
-If you'd rather put the React build on Vercel/Netlify (better CDN, instant
-global caching) and keep only the API on Render, you can — but it puts you
-back into the cross-site cookie problem from Part 2. That would need
-`sameSite: 'none'` on the cookie (which in turn requires `Secure`, i.e. HTTPS
-everywhere — true on both platforms) plus tighter, exact-match `CORS_ORIGIN`
-handling, none of which is wired up right now. I'd rather flag that clearly
-than hand you a two-host setup that silently breaks login, so treat this as a
-"come back and ask me to wire up cross-site cookies properly" option rather
-than a drop-in alternative to Part 3.
+| Symptom | Cause |
+|---|---|
+| Login succeeds, refresh signs you out | Cookie dropped. `NODE_ENV` must be `production` on Railway so `COOKIE_SAMESITE=none` + `COOKIE_SECURE=true` apply |
+| Dashboard empty, console shows CORS errors | `CORS_ORIGIN` missing your Vercel URL, or has a trailing slash |
+| Navbar says "API offline" | `VITE_API_URL` wrong or missing — remember it needs a **redeploy**, not just an edit |
+| Railway boot fails: `MONGO_URI is required in production` | Variable unset or empty. The in-memory fallback is deliberately refused in production |
+| `querySrv ENOTFOUND` / server selection timeout | Atlas → Network Access is missing `0.0.0.0/0` |
+| `bad auth` on boot | Wrong database-user password, or a special character that needs percent-encoding |
+| Deep links 404 on refresh | Vercel Root Directory is not `client`, so `vercel.json`'s rewrite is not being applied |
+| Duplicate alert emails | More than one Railway replica — the scheduler runs per-process |
 
 ---
 
-## Appendix — Full environment variable reference
+## Appendix — running it locally after this change
 
-See `server/.env.example` in the repo for the complete list with inline
-explanations of every variable, including the optional Telegram and Brevo
-alert channels this guide didn't need.
+Local development is unchanged except that the database is now Atlas instead of
+a container:
+
+```bash
+npm run setup     # installs everything, writes server/.env with a random JWT_SECRET
+# paste your Atlas string into MONGO_URI in server/.env
+npm start         # API on :5000, client on :5173
+```
+
+Locally both halves are same-origin through Vite's dev proxy, so
+`COOKIE_SAMESITE` resolves to `lax` and `VITE_API_URL` stays unset. Nothing
+about the production cookie configuration applies on localhost — which is why
+it is derived from `NODE_ENV` rather than hardcoded.
+
+`server/.env.example` documents every variable, including the Telegram and Brevo
+alert channels this guide did not need.

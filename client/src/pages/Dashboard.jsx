@@ -40,8 +40,16 @@ export default function Dashboard() {
       setOverview(o);
       setUpdatedAt(Date.now());
       setError(null);
-    } catch {
-      setError('Cannot reach the API. Is the server running on port 5000?');
+    } catch (err) {
+      // "Is the server running on port 5000?" was true when the API only ever
+      // ran on localhost. Deployed, the API is on its own host and that advice
+      // sends people to look at the wrong machine — so say what actually
+      // happened instead of guessing at a cause that no longer applies.
+      setError(
+        err?.response
+          ? 'The API returned an error. Retry, or check the server logs.'
+          : 'Cannot reach the API. It may be offline, or still starting up.'
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);

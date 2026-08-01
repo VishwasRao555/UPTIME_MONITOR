@@ -5,6 +5,9 @@
   "type": "commonjs",
   "description": "Uptime Monitor API + scheduler (prototype)",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",

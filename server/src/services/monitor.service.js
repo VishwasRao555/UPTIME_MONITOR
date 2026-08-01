@@ -1,5 +1,6 @@
 'use strict';
 
+const { isValidObjectId } = require('mongoose');
 const Monitor = require('../models/Monitor');
 const CheckResult = require('../models/CheckResult');
 const Incident = require('../models/Incident');
@@ -7,6 +8,20 @@ const AppError = require('../utils/AppError');
 const env = require('../config/env');
 const { assertUrlIsSafe } = require('../utils/ssrfGuard');
 const { uptimePercentage, rangeToMs } = require('../utils/uptimeCalculator');
+
+/**
+ * An id that could not name a monitor is "not found", not a crash.
+ *
+ * `:id` comes straight from the URL, so anything at all can arrive here.
+ * Handing it to Mongoose raises a CastError, which is not an AppError, which
+ * the error handler turns into a 500 with an error-level log — so a mistyped
+ * link reads as the server falling over, and a burst of them looks like an
+ * incident. It also answers differently from a well-formed id that does not
+ * exist, which quietly tells a prober which of their guesses parsed.
+ */
+function assertLookable(id) {
+  if (!isValidObjectId(id)) throw new AppError('Monitor not found', 404);
+}
 
 /**
  * Fetch a monitor only if this user owns it.
@@ -20,6 +35,7 @@ const { uptimePercentage, rangeToMs } = require('../utils/uptimeCalculator');
  * "not found" is both true from this user's perspective and silent.
  */
 async function ownedMonitor(id, userId, { lean = false } = {}) {
+  assertLookable(id);
   const query = Monitor.findOne({ _id: id, userId });
   const monitor = await (lean ? query.lean() : query);
   if (!monitor) throw new AppError('Monitor not found', 404);
@@ -118,6 +134,9 @@ async function getMonitor(id, userId) {
 }
 
 async function updateMonitor(id, patch, userId) {
+  // Not routed through ownedMonitor: the update below is a single atomic
+  // findOneAndUpdate scoped by userId, so the id has to be vetted here.
+  assertLookable(id);
   if (patch.url) await assertUrlIsSafe(patch.url, { enabled: env.SSRF_GUARD });
 
   // Resuming is a fresh start: clear the failure streak so a monitor that was
@@ -145,6 +164,9 @@ async function updateMonitor(id, patch, userId) {
 }
 
 async function deleteMonitor(id, userId) {
+  // Same reason as updateMonitor: the delete is atomic and does not go through
+  // ownedMonitor, so nothing else would reject a malformed id.
+  assertLookable(id);
   const monitor = await Monitor.findOneAndDelete({ _id: id, userId });
   if (!monitor) throw new AppError('Monitor not found', 404);
   // Clean up dependent data so a deleted monitor leaves nothing behind.

@@ -202,7 +202,8 @@ async function verifySmtp() {
 async function main() {
   if (!env.MONGO_URI) {
     console.log('MONGO_URI is not set — there is no persistent database to inspect.');
-    console.log('Start the database with:  npm run db:up');
+    console.log('Put your MongoDB Atlas connection string in server/.env:');
+    console.log('  MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/uptime');
     process.exit(1);
   }
 
@@ -243,8 +244,12 @@ async function main() {
 
 main().catch(async (err) => {
   console.error(`\ndoctor failed: ${err.message}`);
-  if (err.message.includes('ECONNREFUSED')) {
-    console.error('The database is not running. Start it with:  npm run db:up');
+  if (/ENOTFOUND|ETIMEDOUT|querySrv|Server selection timed out/i.test(err.message)) {
+    console.error('Could not reach Atlas. Check that your IP is allowed under');
+    console.error('Atlas → Network Access, and that the cluster is not paused.');
+  } else if (/bad auth|Authentication failed/i.test(err.message)) {
+    console.error('Atlas rejected the credentials in MONGO_URI — check the database');
+    console.error('user under Atlas → Database Access (not your Atlas login).');
   }
   await mongoose.disconnect().catch(() => {});
   process.exit(1);

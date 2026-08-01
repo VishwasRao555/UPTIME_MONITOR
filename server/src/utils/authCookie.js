@@ -12,15 +12,19 @@ const env = require('../config/env');
  *
  *  httpOnly  JavaScript cannot read it, so an XSS bug cannot walk off with a
  *            30-day token. This is the reason we use a cookie at all.
- *  sameSite  'lax' stops other origins from driving authenticated requests,
- *            which covers CSRF for an API that never mutates state via GET.
+ *  sameSite  'lax' locally, where the client and API share an origin. 'none'
+ *            in production, because the deployed frontend (Vercel) and API
+ *            (Railway) are different sites and a 'lax' cookie is never
+ *            attached to a cross-site fetch — see COOKIE_SAMESITE in
+ *            config/env.js for why that has to be configurable rather than
+ *            hardcoded, and what makes 'none' safe here.
  *  secure    HTTPS-only in production; off on localhost, which has no TLS.
  */
 const COOKIE_NAME = 'sentinel_token';
 
 const baseOptions = () => ({
   httpOnly: true,
-  sameSite: 'lax',
+  sameSite: env.COOKIE_SAMESITE,
   secure: env.COOKIE_SECURE,
   path: '/',
 });

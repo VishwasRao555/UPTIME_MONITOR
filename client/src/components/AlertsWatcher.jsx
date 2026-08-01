@@ -23,8 +23,25 @@ export default function AlertsWatcher() {
       let monitors;
       try {
         monitors = await listMonitors();
-      } catch {
-        // API unreachable → likely a server crash / down.
+      } catch (err) {
+        if (!alive) return;
+
+        /**
+         * Only a request that never got an answer means the server is down.
+         *
+         * This used to treat every rejection as an outage, so an expired
+         * session — a 401, which is the server answering promptly and
+         * correctly — raised "the monitoring server may have crashed" at the
+         * exact moment the user was being redirected to sign in again. An
+         * alarming lie about your own infrastructure is worse than saying
+         * nothing, and it teaches people to ignore the one notification that
+         * is supposed to mean something.
+         *
+         * `err.response` exists only when the API replied. If it did, it is
+         * alive by definition, whatever the status.
+         */
+        if (err?.response) return;
+
         if (apiOnline.current) {
           apiOnline.current = false;
           notify('Sentinel API is unreachable', {

@@ -137,20 +137,36 @@ interface; the scheduler knows nothing about channels.
 
 | Tool | Why |
 |---|---|
-| **Node.js 18+** | Runs both the API and the client build |
-| **Docker Desktop** | Hosts MongoDB. Alternative: a local `mongod` or Atlas — just repoint `MONGO_URI` |
+| **Node.js 20+** | Runs both the API and the client build |
+| **A MongoDB Atlas cluster** | Stores everything. The free M0 tier is enough; no card required |
 
-Nothing else. No global npm packages, no MongoDB install.
+Nothing else. No global npm packages, no local MongoDB install, no Docker.
 
 ### First time
 
 ```bash
 npm run setup     # installs all three package sets + writes server/.env
-npm start         # MongoDB, API and client together
 ```
 
-`setup` generates `server/.env` with a random `JWT_SECRET` and the Docker
-`MONGO_URI`. It never overwrites an existing `.env`, so re-running it is safe.
+`setup` generates `server/.env` with a random `JWT_SECRET`. It never overwrites
+an existing `.env`, so re-running it is safe.
+
+Open `server/.env` and set `MONGO_URI` to your Atlas connection string
+(Atlas → **Connect** → **Drivers**):
+
+```
+MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/uptime?retryWrites=true&w=majority
+```
+
+Two things that string needs before it works: the `<password>` placeholder
+replaced with the **database user's** password (Atlas → Database Access — a
+different account from your Atlas login), and a database name in the path
+(`/uptime` above). Without the database name Mongoose connects fine and writes
+into a default `test` database instead, which looks like your data vanishing.
+
+```bash
+npm start         # API + client together
+```
 
 Then open **http://localhost:5173** and create an account.
 
@@ -160,45 +176,29 @@ Then open **http://localhost:5173** and create an account.
 npm start
 ```
 
-Make sure Docker Desktop is running first — otherwise MongoDB will not start
-and the API falls back to a database that is wiped on exit.
-
 ### Why one command matters
 
 The app is **two servers**: the API on `:5000` and the Vite client on `:5173`.
 The client proxies `/api` to the API, so if the API is not running every
 request fails — including sign-in, which just looks like a broken login page.
-`npm start` starts both, so they cannot drift apart.
-
-`npm start` is `db:up` followed by `dev`. To run them separately:
-
-```bash
-npm run db:up     # MongoDB in Docker (detached)
-npm run dev       # API + client, interleaved logs
-```
+`npm start` starts both, so they cannot drift apart. (`npm start` is an alias
+for `npm run dev`.)
 
 ### Database
 
-MongoDB runs from [`docker-compose.yml`](docker-compose.yml) with a named
-volume, so data survives `docker compose down` — only `down -v` destroys it.
-The port is bound to `127.0.0.1`, not `0.0.0.0`: the database holds password
-hashes and nothing outside this machine needs to reach it.
+MongoDB lives in **Atlas** — the same cluster in development and production,
+unless you create a second one. `server/.env` points `MONGO_URI` at it.
 
-```bash
-npm run db:up      # start
-npm run db:down    # stop, keep data
-npm run db:shell   # mongosh inside the container
-npm run db:logs
-```
+**Leave `MONGO_URI` unset and the server falls back to an in-process MongoDB
+that is wiped on exit** — your account disappears on every restart. That
+fallback exists so a fresh clone runs before you have credentials to paste in;
+it is not what you want once you have an account. In production it is refused
+outright rather than silently losing data on each deploy.
 
-`server/.env` points `MONGO_URI` at it. **Leave `MONGO_URI` unset and the
-server falls back to an in-process MongoDB that is wiped on exit** — which
-means your account disappears on every restart. That fallback exists so the
-prototype runs with zero setup; it is not what you want once you have an
-account.
-
-Prefer MongoDB Atlas or a local `mongod`? Just repoint `MONGO_URI` — nothing
-else changes.
+If the connection fails, the error says which of the two usual causes it is —
+your IP missing from Atlas → **Network Access**, or bad credentials — because
+the driver's own message ("querySrv ENOTFOUND", "bad auth") names neither.
+`npm run doctor` reports the same thing against a running database.
 
 ---
 
@@ -310,12 +310,15 @@ value fails fast instead of crashing later. Key knobs (`server/.env.example`):
 | `REQUEST_TIMEOUT_MS` | `10000` | Per-probe hard timeout |
 | `RESULT_RETENTION_DAYS` | `30` | TTL for check results (auto-purge) |
 | `SSRF_GUARD` | `true` | Block private/loopback target IPs |
-| `MONGO_URI` | *(unset)* | Persist to real MongoDB; unset → in-memory |
+| `MONGO_URI` | *(unset)* | Atlas connection string. **Required in production**; unset → in-memory (dev only) |
 | `NOTIFIER_CHANNELS` | `console` | Comma-separated: `console,telegram,email` |
 | `NOTIFY_TIMEOUT_MS` | `10000` | Per-provider timeout (one retry on 5xx/429/timeout) |
 | `JWT_SECRET` | *(dev: generated)* | **Required in production** — signs session cookies |
 | `JWT_EXPIRES_DAYS` | `30` | Session lifetime; the cookie's Max-Age matches |
-| `TRUST_PROXY` | `false` | Enable only behind a proxy you control |
+| `TRUST_PROXY` | `false` | Enable only behind a proxy you control (**`true` on Railway**) |
+| `CORS_ORIGIN` | `http://localhost:5173` | Exact origins allowed to call the API with credentials, comma-separated |
+| `COOKIE_SECURE` | *(prod: `true`)* | HTTPS-only auth cookie |
+| `COOKIE_SAMESITE` | *(prod: `none`)* | `none` lets the Vercel frontend send the cookie to the Railway API; `lax` if both share one origin |
 
 ---
 
@@ -329,7 +332,7 @@ Intentionally **not** in this prototype (planned for later phases):
 - Keyword assertion, SSL-expiry warnings
 - Real-time dashboard via Socket.IO (currently 10s polling)
 - Public shareable status page
-- Docker, CI pipeline, rate limiting
+- CI pipeline
 
 The structure is already shaped for these — e.g. adding auth is a `userId`
 field on `Monitor` plus a filter, and a new notifier is one class at the
@@ -341,12 +344,17 @@ existing seam.
 
 ```
 uptime-monitor/
-├── server/     # Express API + node-cron scheduler + services + models
+├── server/     # Express API + node-cron scheduler + services + models  → Railway
 │   ├── src/config, models, services, scheduler, notifiers, routes, controllers, middleware, utils
 │   ├── scripts/probe.js          # Phase-1 standalone probe
 │   ├── scripts/notify-test.js    # fire a fake alert through real channels
 │   ├── scripts/telegram-chat-id.js
+│   ├── railway.json              # Railway build/deploy + /health check
 │   └── tests/unit/               # state machine truth table + notifiers
-└── client/     # React + Vite dashboard
+└── client/     # React + Vite dashboard                                 → Vercel
+    ├── vercel.json               # SPA rewrites so deep links survive refresh
     └── src/api, components, pages, utils
 ```
+
+Database: **MongoDB Atlas**. See [DEPLOYMENT.md](DEPLOYMENT.md) for the full
+deploy walkthrough.
