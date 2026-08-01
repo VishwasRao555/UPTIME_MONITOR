@@ -1,0 +1,44 @@
+{
+  "name": "uptime-monitor-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Uptime Monitor API + scheduler (prototype)",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "probe": "node scripts/probe.js",
+    "doctor": "node scripts/doctor.js",
+    "diagnose": "node scripts/diagnose.js",
+    "fix:alerts": "node scripts/fix-alerts.js",
+    "check:email": "node scripts/check-email-flow.js",
+    "debug:check": "node scripts/debug-check.js",
+    "check:incident": "node scripts/check-incident.js",
+    "notify:test": "node scripts/notify-test.js",
+    "telegram:id": "node scripts/telegram-chat-id.js",
+    "claim:monitors": "node scripts/claim-monitors.js",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.6.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.5.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^9.0.3",
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^10.0.0",
+    "nodemon": "^3.1.4"
+  }
+}

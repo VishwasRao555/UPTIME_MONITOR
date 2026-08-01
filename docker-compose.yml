@@ -1,0 +1,39 @@
+# Persistent MongoDB for Sentinel.
+#
+#   docker compose up -d      start it
+#   docker compose down       stop it (data survives)
+#   docker compose down -v    stop it AND delete the data
+#
+# Without this, the server falls back to an in-process MongoDB that is thrown
+# away on exit — which means your account disappears every time you restart.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: sentinel-mongo
+    restart: unless-stopped
+
+    # Bound to loopback deliberately. Plain "27017:27017" would publish the
+    # database on every interface, and on a laptop that means anyone on the
+    # café wifi. Nothing outside this machine needs to reach it.
+    ports:
+      - '127.0.0.1:27017:27017'
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-sentinel}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-sentinel-local-dev}
+
+    volumes:
+      # A named volume, so `docker compose down` keeps your data and only
+      # `down -v` destroys it.
+      - mongo-data:/data/db
+
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  mongo-data:

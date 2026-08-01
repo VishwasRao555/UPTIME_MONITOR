@@ -1,0 +1,22 @@
+{
+  "name": "uptime-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sentinel — uptime monitor. Root scripts to run the whole stack.",
+  "scripts": {
+    "setup": "npm install && npm --prefix server install && npm --prefix client install && node scripts/bootstrap-env.js",
+    "env:init": "node scripts/bootstrap-env.js",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f mongo",
+    "db:shell": "docker exec -it sentinel-mongo mongosh -u sentinel -p sentinel-local-dev --authenticationDatabase admin uptime",
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "start": "npm run db:up && npm run dev",
+    "doctor": "npm --prefix server run doctor --",
+    "test": "npm --prefix server test",
+    "build": "npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
