@@ -94,18 +94,31 @@ async function connect() {
   mongoose.connection.on('disconnected', () => logger.warn('MongoDB disconnected'));
   mongoose.connection.on('reconnected', () => logger.info('MongoDB reconnected'));
 
-  // Retry with linear backoff: a cold Atlas cluster or a container that is
-  // still booting should not take the whole process down.
-  const maxAttempts = 5;
+  /**
+   * Retry with linear backoff: a cold Atlas cluster or a container that is
+   * still booting should not take the whole process down.
+   *
+   * The budget is sized for the free tier specifically. An M0 cluster is paused
+   * after inactivity and takes its time waking up — comfortably longer than the
+   * ~45s the original five attempts allowed. Running out mid-wake exits the
+   * process, and on a platform that gates a release on a health check that is
+   * not a slow start, it is a failed deployment that has to be triggered again
+   * by hand. Waiting is cheap; the deploy is already in progress either way.
+   */
+  const maxAttempts = 8;
+  const maxBackoffMs = 15000;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+      await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
       logger.info({ host: mongoose.connection.host }, 'MongoDB connected');
       return mongoose.connection;
     } catch (err) {
       if (attempt === maxAttempts) throw explain(err, uri);
-      const waitMs = attempt * 2000;
-      logger.warn({ attempt, waitMs, err: err.message }, 'MongoDB connect failed, retrying');
+      const waitMs = Math.min(attempt * 2000, maxBackoffMs);
+      logger.warn(
+        { attempt, maxAttempts, waitMs, err: err.message },
+        'MongoDB connect failed, retrying'
+      );
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
   }
