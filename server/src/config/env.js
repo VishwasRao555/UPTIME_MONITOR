@@ -177,6 +177,26 @@ if (!source.NOTIFIER_CHANNELS && source.NOTIFIER_CHANNEL) {
   source.NOTIFIER_CHANNELS = source.NOTIFIER_CHANNEL;
 }
 
+/**
+ * MONGO_URL is the same thing by the other common name.
+ *
+ * Railway's own MongoDB service publishes the connection string as MONGO_URL,
+ * and its variable autocomplete offers that spelling — so it is what you end up
+ * with on that platform unless you deliberately type something else. One letter
+ * apart from what this app reads, and the failure it caused gave no hint: the
+ * process refused to start for a missing MONGO_URI while the dashboard plainly
+ * showed a MONGO_URL sitting right there, and the platform reported only
+ * "Healthcheck failed".
+ *
+ * Accepting both is not indulging a typo — it is accepting the name the host
+ * actually hands you. MONGO_URI still wins if both are set, so an explicit
+ * value is never overridden by an injected one.
+ */
+if (!source.MONGO_URI && source.MONGO_URL) {
+  source.MONGO_URI = source.MONGO_URL;
+  console.warn('MONGO_URI is not set — using MONGO_URL instead (they mean the same thing).');
+}
+
 const parsed = schema.safeParse(source);
 
 if (!parsed.success) {

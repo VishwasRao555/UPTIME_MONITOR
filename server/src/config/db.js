@@ -21,9 +21,11 @@ async function resolveUri() {
 
   if (env.NODE_ENV === 'production') {
     throw new Error(
-      'MONGO_URI is required in production.\n' +
+      'MONGO_URI is required in production (MONGO_URL is accepted too).\n' +
         '  Set it to your MongoDB Atlas connection string (Atlas → Connect → Drivers):\n' +
         '    mongodb+srv://<user>:<password>@<cluster>.mongodb.net/uptime?retryWrites=true&w=majority\n' +
+        '  If your host shows a variable under some other name, this reads exactly\n' +
+        '  MONGO_URI or MONGO_URL — anything else is invisible to it.\n' +
         '  Refusing to fall back to the in-memory database, which would discard\n' +
         '  every account and monitor on the next restart.'
     );

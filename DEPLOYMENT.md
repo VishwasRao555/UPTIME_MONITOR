@@ -109,7 +109,7 @@ both need it.
    | Key | Value |
    |---|---|
    | `NODE_ENV` | `production` |
-   | `MONGO_URI` | your Atlas string from Step 1 |
+   | `MONGO_URI` | your Atlas string from Step 1 (`MONGO_URL` is accepted too) |
    | `JWT_SECRET` | generate it — see below |
    | `JWT_EXPIRES_DAYS` | `30` |
    | `TRUST_PROXY` | `true` |
@@ -245,7 +245,8 @@ frontend-only change does not restart the scheduler.
 | Login succeeds, refresh signs you out | Cookie dropped. `NODE_ENV` must be `production` on Railway so `COOKIE_SAMESITE=none` + `COOKIE_SECURE=true` apply |
 | Dashboard empty, console shows CORS errors | `CORS_ORIGIN` missing your Vercel URL, or has a trailing slash |
 | Navbar says "API offline" | `VITE_API_URL` wrong or missing — remember it needs a **redeploy**, not just an edit |
-| Railway boot fails: `MONGO_URI is required in production` | Variable unset or empty. The in-memory fallback is deliberately refused in production |
+| Railway boot fails: `MONGO_URI is required in production` | Variable unset, empty, or **named something else**. Only `MONGO_URI` and `MONGO_URL` are read — `MONGODB_URI`, `DATABASE_URL` and friends are invisible |
+| `Healthcheck failed` with no app logs at all | The process exited before opening a port, so there was nothing to probe. Scroll the deploy log to the last line before it died — it names the variable |
 | `querySrv ENOTFOUND` / server selection timeout | Atlas → Network Access is missing `0.0.0.0/0` |
 | `bad auth` on boot | Wrong database-user password, or a special character that needs percent-encoding |
 | Deep links 404 on refresh | Vercel Root Directory is not `client`, so `vercel.json`'s rewrite is not being applied |
