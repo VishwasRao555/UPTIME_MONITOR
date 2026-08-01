@@ -16,19 +16,32 @@
  */
 
 const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
-const SERVER_ROOT = path.join(__dirname, '..', '..');
+const ENV_MODULE = path.join(__dirname, '..', '..', 'src', 'config', 'env.js');
 
 /**
- * Load config/env.js in a clean process and report what it resolved to.
- * `DOTENV_CONFIG_PATH` is pointed at nothing so a developer's own server/.env
- * cannot change the answer — otherwise these pass or fail depending on whose
- * machine they run on.
+ * A directory with no .env in it, used as the child's working directory.
+ *
+ * env.js calls `require('dotenv').config()`, which resolves its file against
+ * `process.cwd()` — and note that plain `.config()` ignores DOTENV_CONFIG_PATH
+ * entirely, since that is only honoured by the `-r dotenv/config` preload.
+ * Running from the server root therefore let the developer's own server/.env
+ * leak in and decide the answer: these cases passed only while that file
+ * happened to have MONGO_URI commented out, and started failing the moment a
+ * real connection string was added. Somewhere empty is the only cwd that makes
+ * the result depend on the variables the test actually passes.
  */
+const CLEAN_CWD = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-env-'));
+
+afterAll(() => fs.rmSync(CLEAN_CWD, { recursive: true, force: true }));
+
+/** Load config/env.js in a clean process and report what it resolved to. */
 function loadEnv(vars) {
   const script =
-    "const e = require('./src/config/env');" +
+    `const e = require(${JSON.stringify(ENV_MODULE)});` +
     'process.stdout.write(JSON.stringify({' +
     'mongo: e.MONGO_URI ?? null,' +
     'sameSite: e.COOKIE_SAMESITE,' +
@@ -38,13 +51,12 @@ function loadEnv(vars) {
 
   try {
     const stdout = execFileSync(process.execPath, ['-e', script], {
-      cwd: SERVER_ROOT,
+      cwd: CLEAN_CWD,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         PATH: process.env.PATH,
         SystemRoot: process.env.SystemRoot, // Windows: node will not start without it
-        DOTENV_CONFIG_PATH: path.join(SERVER_ROOT, 'does-not-exist.env'),
         ...vars,
       },
     });
@@ -103,6 +115,45 @@ describe('MONGO_URL is accepted as MONGO_URI', () => {
     const env = loadEnv({ ...PROD, MONGO_URI: '', MONGO_URL: '' });
     expect(env.ok).toBe(true);
     expect(env.mongo).toBeNull();
+  });
+});
+
+describe('connection string shapes', () => {
+  /**
+   * The seed-list form is standard Mongo syntax and the only way to reach a
+   * replica set without an SRV lookup, but its comma-separated authority is not
+   * a legal WHATWG URL. Validating with .url() rejected it at boot as "Invalid
+   * url", which reads as a bad value rather than a bad check.
+   */
+  test('accepts a replica-set seed list, which is not a valid WHATWG URL', () => {
+    const seedList =
+      'mongodb://u:p@a.example.net:27017,b.example.net:27017,c.example.net:27017' +
+      '/uptime?ssl=true&replicaSet=rs0&authSource=admin';
+    expect(() => new URL(seedList)).toThrow(); // the premise: genuinely not a URL
+    const env = loadEnv({ ...PROD, MONGO_URI: seedList });
+    expect(env.ok).toBe(true);
+    expect(env.mongo).toBe(seedList);
+  });
+
+  test.each([
+    ['mongodb+srv', ATLAS],
+    ['mongodb single host', 'mongodb://u:p@a.example.net:27017/uptime'],
+    ['no credentials', 'mongodb://localhost:27017/uptime'],
+  ])('accepts %s', (_label, uri) => {
+    const env = loadEnv({ ...PROD, MONGO_URI: uri });
+    expect(env.ok).toBe(true);
+    expect(env.mongo).toBe(uri);
+  });
+
+  // The scheme is the one thing worth asserting; the driver reports the rest.
+  test.each([
+    ['a bare hostname', 'cluster0.example.mongodb.net/uptime'],
+    ['the wrong scheme', 'https://cluster0.example.mongodb.net/uptime'],
+    ['a scheme with nothing after it', 'mongodb://'],
+  ])('rejects %s', (_label, uri) => {
+    const env = loadEnv({ ...PROD, MONGO_URI: uri });
+    expect(env.ok).toBe(false);
+    expect(env.stderr).toMatch(/mongodb:\/\/ or mongodb\+srv:\/\//);
   });
 });
 

@@ -34,9 +34,29 @@ const schema = z.object({
   // variable trivially easy to create — add the row, forget to paste the value —
   // and without this the app would reject it as a malformed URL rather than
   // falling back, turning a blank field into a boot loop with a confusing cause.
+  //
+  // Validated by scheme rather than with .url(), because a MongoDB connection
+  // string is not always a URL. The replica-set seed list form —
+  //   mongodb://u:p@host-a:27017,host-b:27017,host-c:27017/db?replicaSet=rs0
+  // — is standard, documented Mongo syntax and the only way to reach a replica
+  // set without an SRV lookup, but the comma-separated authority is not legal
+  // in a WHATWG URL, so `new URL()` throws on it. Running that through
+  // z.string().url() rejected a perfectly good connection string as "Invalid
+  // url" at boot, which reads as a typo in the value rather than a limitation
+  // of the check.
+  //
+  // The scheme is the part worth asserting here; the driver parses the rest and
+  // says exactly what is wrong with it ("option foo is not supported"), which
+  // beats anything this schema could work out.
   MONGO_URI: z.preprocess(
     (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
-    z.string().url().optional()
+    z
+      .string()
+      .refine(
+        (v) => /^mongodb(\+srv)?:\/\/.+/.test(v),
+        'must be a MongoDB connection string starting with mongodb:// or mongodb+srv://'
+      )
+      .optional()
   ),
 
   // Scheduler
