@@ -3,7 +3,7 @@
  * ------------------------------------------------------------------ */
 
 // The GitHub repository this project lives in (navbar + docs links).
-export const GITHUB_URL = 'https://github.com/vishwasraoch555/uptime-monitor';
+export const GITHUB_URL = 'https://github.com/VishwasRao555/UPTIME_MONITOR';
 
 // How often the background alert watcher re-checks monitor state (ms).
 export const ALERT_POLL_MS = 15000;
