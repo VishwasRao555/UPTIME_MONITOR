@@ -97,34 +97,38 @@ async function connect() {
   mongoose.connection.on('reconnected', () => logger.info('MongoDB reconnected'));
 
   /**
-   * Retry with linear backoff: a cold Atlas cluster or a container that is
-   * still booting should not take the whole process down.
+   * Retry until a deadline, not a fixed attempt count.
    *
-   * The budget is sized for the free tier specifically. An M0 cluster is paused
-   * after inactivity and takes its time waking up — comfortably longer than the
-   * ~45s the original five attempts allowed. Running out mid-wake exits the
-   * process, and on a platform that gates a release on a health check that is
-   * not a slow start, it is a failed deployment that has to be triggered again
-   * by hand. Waiting is cheap; the deploy is already in progress either way.
+   * An M0 Atlas cluster is paused after inactivity and can take well over a
+   * minute to wake. The HTTP server is already listening by the time we get
+   * here (see server.js), so Railway's /health probe can keep getting 503
+   * while we wait — that is a slow start, not a dead process. The deadline
+   * leaves headroom under railway.json's 300s healthcheckTimeout: once we give
+   * up and exit, the platform has nothing left to probe.
    */
-  const maxAttempts = 8;
+  const deadlineMs = Date.now() + 240_000;
   const maxBackoffMs = 15000;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+  let attempt = 0;
+  let lastErr;
+  while (Date.now() < deadlineMs) {
+    attempt += 1;
     try {
       await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
       logger.info({ host: mongoose.connection.host }, 'MongoDB connected');
       return mongoose.connection;
     } catch (err) {
-      if (attempt === maxAttempts) throw explain(err, uri);
-      const waitMs = Math.min(attempt * 2000, maxBackoffMs);
+      lastErr = err;
+      const remaining = deadlineMs - Date.now();
+      if (remaining <= 0) break;
+      const waitMs = Math.min(attempt * 2000, maxBackoffMs, remaining);
       logger.warn(
-        { attempt, maxAttempts, waitMs, err: err.message },
+        { attempt, waitMs, remainingMs: remaining, err: err.message },
         'MongoDB connect failed, retrying'
       );
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
   }
-  return null;
+  throw explain(lastErr || new Error('MongoDB connect timed out'), uri);
 }
 
 async function disconnect() {

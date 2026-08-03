@@ -8,26 +8,18 @@ const { runMigrations } = require('./migrations');
 const { startScheduler } = require('./scheduler');
 
 async function main() {
-  await db.connect();
-
-  // Before the scheduler runs, not after: a repair that resumes monitors the
-  // scheduler would otherwise skip has to land before the first tick, or the
-  // first minute of every boot is spent not checking things again.
-  //
-  // Never fatal, though. A data repair that cannot be applied is a reason to
-  // shout, not a reason to refuse to monitor anything — the claim is released
-  // on failure, so the next boot simply tries again.
-  try {
-    await runMigrations();
-  } catch (err) {
-    logger.error(
-      { err: err.message },
-      'Data repair failed — starting anyway. Run "npm run doctor" to see what is unhealthy'
-    );
-  }
-
-  const scheduler = startScheduler();
-  const server = app.listen(env.PORT, () => {
+  /**
+   * Bind the HTTP port before touching Mongo.
+   *
+   * Railway's deploy healthcheck probes /health on $PORT. If we wait for Atlas
+   * (cold M0 clusters routinely take a minute-plus) before listen(), that probe
+   * gets connection-refused the whole time and the platform reports only
+   * "Healthcheck failure" — even though the process is alive and retrying.
+   *
+   * Binding to 0.0.0.0 (not 127.0.0.1) is required so the check from outside
+   * the container can reach us. Railway injects PORT; we already honour it.
+   */
+  const server = app.listen(env.PORT, '0.0.0.0', () => {
     logger.info({ port: env.PORT, env: env.NODE_ENV }, 'API listening');
   });
 
@@ -47,6 +39,26 @@ async function main() {
     }
     process.exit(1);
   });
+
+  await db.connect();
+
+  // Before the scheduler runs, not after: a repair that resumes monitors the
+  // scheduler would otherwise skip has to land before the first tick, or the
+  // first minute of every boot is spent not checking things again.
+  //
+  // Never fatal, though. A data repair that cannot be applied is a reason to
+  // shout, not a reason to refuse to monitor anything — the claim is released
+  // on failure, so the next boot simply tries again.
+  try {
+    await runMigrations();
+  } catch (err) {
+    logger.error(
+      { err: err.message },
+      'Data repair failed — starting anyway. Run "npm run doctor" to see what is unhealthy'
+    );
+  }
+
+  const scheduler = startScheduler();
 
   // Graceful shutdown: stop taking ticks, drain the server, close the DB.
   let closing = false;

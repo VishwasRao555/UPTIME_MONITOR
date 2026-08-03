@@ -1,0 +1,17 @@
+# Fallback when the Railway service Root Directory is left at the repo root.
+# Prefer setting Root Directory to "server" in the dashboard — that uses
+# server/railway.json instead and installs only the API's dependencies.
+#
+# Without one of those, Nixpacks would run the root package.json "start"
+# script (local dev: API + Vite), which never binds $PORT for the healthcheck.
+
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm --prefix server ci --omit=dev"
+
+[deploy]
+startCommand = "npm --prefix server start"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

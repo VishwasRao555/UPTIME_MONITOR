@@ -100,10 +100,14 @@ both need it.
 
      This matters. It points the build at `server/package.json` and
      `server/railway.json`, so Railway installs only the API's dependencies and
-     picks up the health check. Left at the repo root it would build the
-     orchestration package instead and never start the server.
+     picks up the health check. Left at the repo root, the root `railway.toml`
+     is a fallback — but setting Root Directory to `server` is still the
+     clearer setup.
    - Leave build and start commands alone — `server/railway.json` supplies them
      (`npm start`, health check on `/health`).
+   - Confirm **Healthcheck Path** is `/health` and timeout is at least `300`
+     seconds (Settings → Healthcheck). A shorter UI override will mark a cold
+     Atlas wake as a failed deploy.
 3. **Variables** → add:
 
    | Key | Value |
@@ -247,7 +251,10 @@ frontend-only change does not restart the scheduler.
 | Navbar says "API offline" | `VITE_API_URL` wrong or missing — remember it needs a **redeploy**, not just an edit |
 | Railway boot fails: `MONGO_URI is required in production` | Variable unset, empty, or **named something else**. Only `MONGO_URI` and `MONGO_URL` are read — `MONGODB_URI`, `DATABASE_URL` and friends are invisible |
 | `Healthcheck failed` with no app logs at all | The process exited before opening a port, so there was nothing to probe. Scroll the deploy log to the last line before it died — it names the variable |
+| `Healthcheck failed` after ~1–2 min, logs show Mongo retries | Atlas unreachable or still waking. Confirm Network Access allows `0.0.0.0/0` and `MONGO_URI`/`MONGO_URL` is set. The API now binds `$PORT` before Mongo so Railway can probe `/health` (503 until connected, then 200) |
+| Build succeeds but healthcheck never gets a response | Service **Root Directory** must be `server` (or the repo-root `railway.toml` fallback must apply). Root `npm start` is local-dev only and does not bind Railway's `$PORT` |
 | `querySrv ENOTFOUND` / server selection timeout | Atlas → Network Access is missing `0.0.0.0/0` |
+| `querySrv ECONNREFUSED` | Not Atlas — the machine's DNS resolver refused the query, so `mongodb+srv://` cannot discover the shards. Point DNS at `1.1.1.1`, or use the SRV-free seed list from **Connect → Drivers → Node.js 2.2.12 or later** |
 | `bad auth` on boot | Wrong database-user password, or a special character that needs percent-encoding |
 | Deep links 404 on refresh | Vercel Root Directory is not `client`, so `vercel.json`'s rewrite is not being applied |
 | Duplicate alert emails | More than one Railway replica — the scheduler runs per-process |
