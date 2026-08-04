@@ -103,11 +103,12 @@ export default function Dashboard() {
       <header className="hero">
         <div className="hero-top">
           <div className="hero-copy">
-            <span className="eyebrow">Real-time endpoint diagnostics</span>
-            <h1 className="display">Protect your uptime.</h1>
+            <span className="eyebrow">Always on. Never loud until it matters.</span>
+            <h1 className="display">Your sites' night watch.</h1>
             <p className="lede">
-              Sentinel probes your endpoints on a schedule, catches outages after a
-              debounced failure streak, and logs every incident. No noise.
+              UPTIME_MONITOR keeps a ruthless pulse on every endpoint you care
+              about — ignores one-off blips, opens incidents when it counts, and
+              hits you with an alert before your users do.
             </p>
           </div>
           <button className="btn on-dark hero-cta" onClick={() => setShowForm(true)}>
@@ -185,7 +186,7 @@ export default function Dashboard() {
           <div className="empty">
             <MagnifyingGlass className="icon" size={40} weight="bold" />
             <h3>No monitors yet</h3>
-            <p>Add your first endpoint and Sentinel starts watching it immediately.</p>
+            <p>Drop in a URL — the night watch starts on the next tick.</p>
             <button className="btn primary" onClick={() => setShowForm(true)}>
               <Plus size={16} weight="bold" /> Add your first monitor
             </button>

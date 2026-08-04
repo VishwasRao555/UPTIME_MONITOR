@@ -34,7 +34,7 @@ const ENV_MODULE = path.join(__dirname, '..', '..', 'src', 'config', 'env.js');
  * real connection string was added. Somewhere empty is the only cwd that makes
  * the result depend on the variables the test actually passes.
  */
-const CLEAN_CWD = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-env-'));
+const CLEAN_CWD = fs.mkdtempSync(path.join(os.tmpdir(), 'uptime-monitor-env-'));
 
 afterAll(() => fs.rmSync(CLEAN_CWD, { recursive: true, force: true }));
 

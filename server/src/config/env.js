@@ -103,7 +103,7 @@ const schema = z.object({
   // The sender address must be a verified sender in your Brevo account.
   BREVO_API_KEY: z.string().min(1).optional(),
   ALERT_EMAIL_FROM: z.string().email().optional(),
-  ALERT_EMAIL_FROM_NAME: z.string().default('Sentinel'),
+  ALERT_EMAIL_FROM_NAME: z.string().default('UPTIME_MONITOR'),
   ALERT_EMAIL_TO: z
     .string()
     .default('')

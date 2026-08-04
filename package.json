@@ -2,7 +2,7 @@
   "name": "uptime-monitor",
   "version": "0.1.0",
   "private": true,
-  "description": "Sentinel — uptime monitor. Root scripts to run the whole stack.",
+  "description": "UPTIME_MONITOR — your sites' night watch. Probe hard, mute the blips, scream only when something is on fire.",
   "scripts": {
     "setup": "npm install && npm --prefix server install && npm --prefix client install && node scripts/bootstrap-env.js",
     "env:init": "node scripts/bootstrap-env.js",

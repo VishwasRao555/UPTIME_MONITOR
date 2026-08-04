@@ -4,7 +4,7 @@ import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
-const SEEN_KEY = 'sentinel:welcome-alerts-seen';
+const SEEN_KEY = 'uptime_monitor:welcome-alerts-seen';
 
 /**
  * Shown once, right after an account is created: the moment someone has
@@ -90,7 +90,7 @@ export default function WelcomeAlerts() {
       <div className="notif-copy">
         <h4 id="welcome-alerts-title">Get told when it breaks</h4>
         <p>
-          Sentinel can reach you the moment an endpoint stops answering — even
+          UPTIME_MONITOR can tap you the second an endpoint goes dark — even
           when this tab is closed.
         </p>
       </div>

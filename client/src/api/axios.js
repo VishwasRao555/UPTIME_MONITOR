@@ -30,7 +30,7 @@ const api = axios.create({
 });
 
 /** Broadcast when the server rejects our session, so AuthContext can react. */
-export const UNAUTHORIZED_EVENT = 'sentinel:unauthorized';
+export const UNAUTHORIZED_EVENT = 'uptime_monitor:unauthorized';
 
 api.interceptors.response.use(
   (response) => response,

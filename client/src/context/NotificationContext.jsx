@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 const NotificationContext = createContext(null);
-const STORAGE_KEY = 'sentinel:notifications-enabled';
-const DISMISS_KEY = 'sentinel:notif-prompt-dismissed';
+const STORAGE_KEY = 'uptime_monitor:notifications-enabled';
+const DISMISS_KEY = 'uptime_monitor:notif-prompt-dismissed';
 
 const supported = typeof window !== 'undefined' && 'Notification' in window;
 
@@ -42,7 +42,7 @@ export function NotificationProvider({ children }) {
       // A confirming ping so the user sees it worked.
       show('Notifications enabled', {
         body: "You'll be alerted the moment a monitor goes down.",
-        tag: 'sentinel-welcome',
+        tag: 'uptime-monitor-welcome',
       });
     }
     setPromptDismissed(true);

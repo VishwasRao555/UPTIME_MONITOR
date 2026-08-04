@@ -37,8 +37,8 @@ export default function Login() {
     <AuthLayout
       eyebrow="Sign in"
       title={<>Welcome<br />back</>}
-      sub="Your monitors kept running while you were away. Sign in to see what happened."
-      tagline="Know it is down before your users tell you"
+      sub="The watch kept ticking. Sign in and see who blinked while you were gone."
+      tagline="Your sites' night watch"
     >
       <form className="form auth-form" onSubmit={submit} noValidate>
         <FormError message={apiError} />

@@ -1,3 +1,5 @@
+import BrandLogo from './BrandLogo';
+
 /**
  * Shown for the one round-trip it takes to ask the server whether our cookie
  * is still good. Brief, but it must exist: rendering the dashboard first and
@@ -8,7 +10,7 @@ export default function AuthSplash() {
   return (
     <div className="auth-splash" role="status" aria-live="polite">
       <div className="splash-mark">
-        <span className="logo-mark">S</span>
+        <BrandLogo size={52} />
         <span className="splash-ring" aria-hidden="true" />
         <span className="splash-ring delay" aria-hidden="true" />
       </div>

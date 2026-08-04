@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Path, Pulse, ShieldCheck, BellRinging, ChartLine, Warning,
+  ArrowLeft, Path, Pulse, BellRinging, ChartLine, Warning,
   GithubLogo, Plus, ArrowRight,
 } from '@phosphor-icons/react';
 import { GITHUB_URL } from '../config';
@@ -9,7 +9,7 @@ const STEPS = [
   {
     icon: <Plus size={20} weight="bold" />,
     title: 'You add a monitor',
-    body: 'Give Sentinel a name, a URL, an HTTP method, the status code you expect, a timeout, and how often to check. That is the whole contract.',
+    body: 'Give UPTIME_MONITOR a name, a URL, an HTTP method, the status code you expect, a timeout, and how often to check. That is the whole contract.',
   },
   {
     icon: <Pulse size={20} weight="bold" />,
@@ -29,7 +29,7 @@ const STEPS = [
   {
     icon: <BellRinging size={20} weight="bold" />,
     title: 'You get notified',
-    body: 'Enable notifications and Sentinel fires a system alert when a monitor goes down, when it recovers, and when the API itself becomes unreachable — even while you are in another app.',
+    body: 'Enable notifications and UPTIME_MONITOR fires a system alert when a monitor goes down, when it recovers, and when the API itself becomes unreachable — even while you are in another app.',
   },
   {
     icon: <ChartLine size={20} weight="bold" />,
@@ -53,7 +53,7 @@ const FAQ = [
   },
   {
     q: 'Do notifications work when the tab is in the background?',
-    a: 'Yes. As long as the browser is running, alerts are delivered through the service worker — you do not need the Sentinel tab focused.',
+    a: 'Yes. As long as the browser is running, alerts are delivered through the service worker — you do not need the UPTIME_MONITOR tab focused.',
   },
 ];
 
@@ -75,11 +75,11 @@ export default function Docs() {
 
       <header className="docs-hero">
         <span className="eyebrow">Documentation</span>
-        <h1 className="display">How Sentinel<br />watches your sites.</h1>
+        <h1 className="display">How UPTIME_MONITOR<br />watches your sites.</h1>
         <p className="lede">
-          Sentinel is a self-hosted uptime monitor. It probes your endpoints on a
-          schedule, decides UP or DOWN with a debounced state machine, logs every
-          incident, and alerts you the moment something breaks.
+          UPTIME_MONITOR is the night watch for your stack. Ruthless schedule,
+          smart debounce, loud only when something is actually on fire — so you
+          hear about downtime before your users ever do.
         </p>
       </header>
 
@@ -119,7 +119,7 @@ export default function Docs() {
       <section className="docs-cta">
         <div>
           <h2 className="docs-h2">Ready to watch something?</h2>
-          <p className="muted">Add your first endpoint and Sentinel starts probing it immediately.</p>
+          <p className="muted">Add your first endpoint — UPTIME_MONITOR starts probing it immediately.</p>
         </div>
         <div className="docs-cta-actions">
           <Link className="btn primary" to="/">Open the dashboard <ArrowRight size={16} weight="bold" /></Link>

@@ -1,14 +1,14 @@
-import { PulseIcon } from '@phosphor-icons/react';
+import BrandLogo from './BrandLogo';
 
 export default function Footer() {
   return (
     <footer className="footer">
       <div className="footer-inner">
         <span className="footer-brand">
-          <PulseIcon size={15} weight="bold" /> Sentinel
+          <BrandLogo size={15} /> UPTIME_MONITOR
         </span>
         <span className="footer-note">
-          Self-hosted uptime monitoring · Debounced state machine · Zero runtime cost
+          Your sites. Our pulse. Zero drama until something dies.
         </span>
         <span className="footer-year">© {new Date().getFullYear()}</span>
       </div>

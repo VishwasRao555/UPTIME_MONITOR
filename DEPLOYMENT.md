@@ -122,7 +122,7 @@ both need it.
    | `NOTIFIER_CHANNELS` | `console,gmail` |
    | `GMAIL_USER` | your Gmail address |
    | `GMAIL_APP_PASSWORD` | the 16-character App Password (spaces are stripped for you) |
-   | `ALERT_EMAIL_FROM_NAME` | `Uptime Monitor` |
+   | `ALERT_EMAIL_FROM_NAME` | `UPTIME_MONITOR` |
    | `SSRF_GUARD` | `true` |
    | `CORS_ORIGIN` | *(placeholder for now — filled in at Step 4)* |
 

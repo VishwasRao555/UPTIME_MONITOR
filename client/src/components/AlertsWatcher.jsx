@@ -44,9 +44,9 @@ export default function AlertsWatcher() {
 
         if (apiOnline.current) {
           apiOnline.current = false;
-          notify('Sentinel API is unreachable', {
+          notify('UPTIME_MONITOR API is unreachable', {
             body: 'The monitoring server is not responding. It may have crashed or gone offline.',
-            tag: 'sentinel-api-down',
+            tag: 'uptime-monitor-api-down',
             requireInteraction: true,
           });
           toast.error('API unreachable — the monitoring server may be down.');
@@ -58,7 +58,7 @@ export default function AlertsWatcher() {
 
       if (!apiOnline.current) {
         apiOnline.current = true;
-        notify('Sentinel API is back online', { tag: 'sentinel-api-up' });
+        notify('UPTIME_MONITOR API is back online', { tag: 'uptime-monitor-api-up' });
         toast.success('API reconnected.');
       }
 

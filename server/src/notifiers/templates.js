@@ -16,7 +16,7 @@ const env = require('../config/env');
  * The name every email claims to be from, read once from config so the
  * footer can never drift from the `From:` header. A mismatch between the
  * two — mail arrives "From: Acme Alerts" but the body says "Sent by
- * Sentinel" — is exactly the inconsistency spam filters (and recipients)
+ * UPTIME_MONITOR" — is exactly the inconsistency spam filters (and recipients)
  * read as a phishing tell.
  */
 const BRAND = env.ALERT_EMAIL_FROM_NAME;

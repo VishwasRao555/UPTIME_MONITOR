@@ -1,4 +1,4 @@
-# Sentinel — Design System
+# UPTIME_MONITOR — Design System
 
 > Single source of truth for the visual language of the Uptime Monitor UI.
 > The implementation lives in [`client/src/index.css`](client/src/index.css).

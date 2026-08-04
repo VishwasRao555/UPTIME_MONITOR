@@ -7,6 +7,7 @@ import { getHealth } from '../api/monitor.api';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { GITHUB_URL } from '../config';
+import BrandLogo from './BrandLogo';
 
 /** Polls /health so the navbar always reflects whether the API is reachable. */
 function useApiHealth(intervalMs = 15000) {
@@ -105,9 +106,9 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-inner">
-        <Link to="/" className="brand" aria-label="Sentinel — go to dashboard">
-          <span className="logo-mark">S</span>
-          <span className="brand-name">Sentinel</span>
+        <Link to="/" className="brand" aria-label="UPTIME_MONITOR — go to dashboard">
+          <BrandLogo />
+          <span className="brand-name">UPTIME_MONITOR</span>
         </Link>
 
         <div className="nav-links">

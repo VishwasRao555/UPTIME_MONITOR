@@ -1,4 +1,4 @@
-/* Sentinel service worker.
+/* UPTIME_MONITOR service worker.
  * Minimal by design: it exists so notifications are shown via the SW
  * registration (more reliable than page-scoped Notification, and it keeps
  * working while the tab is backgrounded). Clicking a notification focuses or

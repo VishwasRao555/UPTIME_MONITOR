@@ -1,5 +1,6 @@
 import { PulseIcon } from '@phosphor-icons/react';
 import Slideshow from './Slideshow';
+import BrandLogo from './BrandLogo';
 
 /** Rows fade up in sequence on mount; `--i` is the stagger index read by CSS. */
 export const step = (i) => ({ '--i': i });
@@ -11,8 +12,8 @@ export default function AuthLayout({ eyebrow, title, sub, children, tagline }) {
       <section className="auth-panel">
         <div className="auth-inner">
           <span className="auth-brand" style={step(0)}>
-            <span className="logo-mark">S</span>
-            <span className="brand-name">Sentinel</span>
+            <BrandLogo />
+            <span className="brand-name">UPTIME_MONITOR</span>
           </span>
 
           <p className="eyebrow auth-eyebrow" style={step(1)}>{eyebrow}</p>
@@ -32,7 +33,7 @@ export default function AuthLayout({ eyebrow, title, sub, children, tagline }) {
             <p className="art-tagline display">{tagline}</p>
             <p className="art-note">
               <PulseIcon size={14} weight="bold" />
-              Checks every 30 seconds. Alerts the moment it stops.
+              Always watching. Instantly loud when it breaks.
             </p>
           </div>
         </div>

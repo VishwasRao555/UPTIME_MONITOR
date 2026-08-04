@@ -1,8 +1,8 @@
-# Uptime Monitor — Prototype (v1)
+# UPTIME_MONITOR — Prototype (v1)
 
-A self-hosted MERN service that periodically probes websites, records latency
-and availability, raises an alert when a site changes state, and serves a live
-React dashboard. **No AI/LLM anywhere. Runs for free.**
+Your sites' night watch. A self-hosted MERN service that periodically probes
+websites, records latency and availability, raises an alert when a site changes
+state, and serves a live React dashboard. **No AI/LLM anywhere. Runs for free.**
 
 This is the **prototype** described in `UPTIME_MONITOR_PLAN.md`. It implements
 the MVP core and deliberately defers the complex features (see
@@ -28,7 +28,7 @@ the MVP core and deliberately defers the complex features (see
   are isolated: a dead email provider never costs you the Telegram message.
 - **SSRF guard** — user URLs that resolve to loopback / private / link-local
   ranges (e.g. `169.254.169.254`) are rejected before any probe.
-- **Sentinel dashboard** — a bold yellow-and-black poster UI (Anton display +
+- **UPTIME_MONITOR dashboard** — a bold yellow-and-black poster UI (Anton display +
   Space Grotesk): a live fleet stats bar (total / up / down / avg response /
   overall uptime), status-filtered monitor cards with a recent-checks strip,
   response-time and uptime metrics, and a detail page with a switchable

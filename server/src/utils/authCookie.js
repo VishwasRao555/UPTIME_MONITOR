@@ -20,7 +20,7 @@ const env = require('../config/env');
  *            hardcoded, and what makes 'none' safe here.
  *  secure    HTTPS-only in production; off on localhost, which has no TLS.
  */
-const COOKIE_NAME = 'sentinel_token';
+const COOKIE_NAME = 'uptime_monitor_token';
 
 const baseOptions = () => ({
   httpOnly: true,

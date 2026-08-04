@@ -59,7 +59,7 @@ export default function MonitorForm({ onClose, onSaved, monitor }) {
         <p className="sub">
           {editing
             ? 'Update how this endpoint is probed.'
-            : 'Sentinel checks it on the interval you set and alerts on state change.'}
+            : 'We check it on your interval and only yell when the state actually flips.'}
         </p>
         {error && <div className="error-banner" role="alert">{error}</div>}
         <form className="form" onSubmit={submit}>

@@ -36,8 +36,8 @@ export default function Signup() {
     <AuthLayout
       eyebrow="Create account"
       title={<>Start<br />watching</>}
-      sub="Add your first monitor in under a minute. Sentinel probes it on your schedule and tells you the moment it stops answering."
-      tagline="Know it is down before your users tell you"
+      sub="Drop a URL. We take the night shift — probe on your cadence, mute the blips, ping you the second it goes dark."
+      tagline="Your sites' night watch"
     >
       <form className="form auth-form" onSubmit={submit} noValidate>
         <FormError message={apiError} />
