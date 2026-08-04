@@ -4,6 +4,8 @@ Your sites' night watch. A self-hosted MERN service that periodically probes
 websites, records latency and availability, raises an alert when a site changes
 state, and serves a live React dashboard. **No AI/LLM anywhere. Runs for free.**
 
+**Built by [CH VISHWAS RAO](https://github.com/VishwasRao555).**
+
 This is the **prototype** described in `UPTIME_MONITOR_PLAN.md`. It implements
 the MVP core and deliberately defers the complex features (see
 [What's deferred](#whats-deferred)).

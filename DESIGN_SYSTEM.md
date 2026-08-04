@@ -121,8 +121,9 @@ The app never lets the **page** scroll; only the content region does.
 | Notification prompt | `components/NotificationPrompt.jsx` | animated bell, slide-up, permission request |
 | Detail | `pages/MonitorDetail.jsx` | title row · dark stat bar · latency chart · incidents table |
 | Docs | `pages/Docs.jsx` | hero · numbered steps · status legend · FAQ · CTA |
-| Footer | `components/Footer.jsx` | slim, always-visible |
-| Auth shell | `components/AuthLayout.jsx` | split: form on canvas ∥ art plate on accent. Renders **outside** the app-shell — no navbar, no footer |
+| Footer | `components/Footer.jsx` | slim, always-visible; includes BuiltBy credit |
+| BuiltBy | `components/BuiltBy.jsx` | "Built by CH VISHWAS RAO" — Anton name, yellow underline, links to GitHub |
+| Auth shell | `components/AuthLayout.jsx` | split: form on canvas ∥ art plate on accent. Renders **outside** the app-shell — no navbar, no footer; includes BuiltBy credit under the form |
 | Password field | `components/PasswordField.jsx` | show/hide affix + 3-band strength meter (signup only) |
 | Auth extras | `components/AuthExtras.jsx` | submit button w/ busy state · form-level error · Google button (disabled) |
 | Slideshow | `components/Slideshow.jsx` | 3-up carousel, 2s hold, crossfade, loops forever. Pauses only on a hidden tab — **never on hover**, since the panel sits under the resting cursor and a hover-pause reads as a broken loop |

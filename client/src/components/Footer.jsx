@@ -1,4 +1,5 @@
 import BrandLogo from './BrandLogo';
+import BuiltBy from './BuiltBy';
 
 export default function Footer() {
   return (
@@ -10,7 +11,10 @@ export default function Footer() {
         <span className="footer-note">
           Your sites. Our pulse. Zero drama until something dies.
         </span>
-        <span className="footer-year">© {new Date().getFullYear()}</span>
+        <div className="footer-meta">
+          <BuiltBy />
+          <span className="footer-year">© {new Date().getFullYear()}</span>
+        </div>
       </div>
     </footer>
   );

@@ -4,6 +4,7 @@ import {
   GithubLogo, Plus, ArrowRight,
 } from '@phosphor-icons/react';
 import { GITHUB_URL } from '../config';
+import BuiltBy from '../components/BuiltBy';
 
 const STEPS = [
   {
@@ -129,6 +130,11 @@ export default function Docs() {
           </a>
         </div>
       </section>
+
+      <div className="docs-credit">
+        <BuiltBy />
+        <span className="docs-credit-note">Designed &amp; built end to end.</span>
+      </div>
     </div>
   );
 }

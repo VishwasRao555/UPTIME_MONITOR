@@ -1,6 +1,7 @@
 import { PulseIcon } from '@phosphor-icons/react';
 import Slideshow from './Slideshow';
 import BrandLogo from './BrandLogo';
+import BuiltBy from './BuiltBy';
 
 /** Rows fade up in sequence on mount; `--i` is the stagger index read by CSS. */
 export const step = (i) => ({ '--i': i });
@@ -21,6 +22,10 @@ export default function AuthLayout({ eyebrow, title, sub, children, tagline }) {
           <p className="auth-sub" style={step(3)}>{sub}</p>
 
           {children}
+
+          <div className="auth-credit" style={step(12)}>
+            <BuiltBy />
+          </div>
         </div>
       </section>
 
