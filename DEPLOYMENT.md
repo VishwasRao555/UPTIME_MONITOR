@@ -253,6 +253,7 @@ frontend-only change does not restart the scheduler.
 | `Healthcheck failed` with no app logs at all | The process exited before opening a port, so there was nothing to probe. Scroll the deploy log to the last line before it died — it names the variable |
 | `Healthcheck failed` after ~1–2 min, logs show Mongo retries | Atlas unreachable or still waking. Confirm Network Access allows `0.0.0.0/0` and `MONGO_URI`/`MONGO_URL` is set. The API now binds `$PORT` before Mongo so Railway can probe `/health` (503 until connected, then 200) |
 | Build succeeds but healthcheck never gets a response | Service **Root Directory** must be `server` (or the repo-root `railway.toml` fallback must apply). Root `npm start` is local-dev only and does not bind Railway's `$PORT` |
+| Build fails: `npm ci` / `EUSAGE` / missing `package-lock.json` | Custom build used `npm --prefix server ci`, which Railway's npm cannot resolve against the lockfile. Prefer **Root Directory:** `server`, or pull the fixed root `railway.toml` that `cd`s into `server` before `npm ci` |
 | `querySrv ENOTFOUND` / server selection timeout | Atlas → Network Access is missing `0.0.0.0/0` |
 | `querySrv ECONNREFUSED` | Not Atlas — the machine's DNS resolver refused the query, so `mongodb+srv://` cannot discover the shards. Point DNS at `1.1.1.1`, or use the SRV-free seed list from **Connect → Drivers → Node.js 2.2.12 or later** |
 | `bad auth` on boot | Wrong database-user password, or a special character that needs percent-encoding |

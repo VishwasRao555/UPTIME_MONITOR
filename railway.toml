@@ -7,10 +7,13 @@
 
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm --prefix server ci --omit=dev"
+# Enter server/ when present (repo-root deploys), then npm ci next to the
+# lockfile. `npm --prefix server ci` fails on Railway's npm with EUSAGE even
+# though server/package-lock.json exists — ci must run with cwd = server.
+buildCommand = "sh -c 'if [ -f server/package-lock.json ]; then cd server; fi; npm ci --omit=dev'"
 
 [deploy]
-startCommand = "npm --prefix server start"
+startCommand = "sh -c 'if [ -f server/package.json ]; then cd server; fi; npm start'"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
